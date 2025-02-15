@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>授权码生成器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+      body {
+        padding: 20px;
+        background-color: #f8f9fa;
+      }
+      .container {
+        max-width: 500px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .result-box {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        word-break: break-all;
+      }
+      .copy-btn {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2 class="text-center mb-4">授权码生成器</h2>
+      <div class="mb-3">
+        <label for="days" class="form-label">授权天数</label>
+        <input type="number" class="form-control" id="days" min="1" max="365" value="7" />
+      </div>
+      <button class="btn btn-primary w-100" onclick="handleGenerate()">生成授权码</button>
+
+      <div id="result" class="result-box d-none">
+        <div class="mb-2">授权码：</div>
+        <div id="authKey" class="font-monospace"></div>
+        <button class="btn btn-success w-100 copy-btn" onclick="copyKey()">复制授权码</button>
+      </div>
+    </div>
+
+    <script>
+      function generateKey(date, days, salt) {
+        try {
+          const timestamp = Math.floor(date.getTime() / (1000 * 60));
+          console.log('timestamp:', timestamp);
+          
+          // 1. 使用相对时间戳（以2024年为基准）减小数值
+          const baseTime = new Date('2024-01-01').getTime() / (1000 * 60)
+          const relativeTime = timestamp - baseTime
+          console.log('relativeTime:', relativeTime);
+          
+          // 2. 构建短数据字符串
+          const data = {
+            t: relativeTime,  // 相对时间戳
+            d: days           // 授权天数
+          }
+          console.log('data:', data);
+          
+          // 3. 生成紧凑的JSON
+          const dataStr = JSON.stringify(data)
+          console.log('dataStr:', dataStr);
+          
+          // 4. 使用更紧凑的Base64URL编码（去掉填充字符=）
+          const encodedData = CryptoJS.enc.Base64.stringify(
+            CryptoJS.enc.Utf8.parse(dataStr)
+          ).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
+          console.log('encodedData:', encodedData);
+          
+          // 5. 生成短校验码（4位）并组合
+          const checksum = CryptoJS.HmacSHA256(encodedData, salt).toString().substring(0, 4)
+          console.log('checksum:', checksum);
+          console.log('salt:', salt);
+          
+          return `${encodedData}${checksum}`
+        } catch (error) {
+          console.error("生成授权码失败:", error);
+          return null;
+        }
+      }
+
+      function generateAuthKey(days) {
+        if (days < 1) {
+          throw new Error("授权天数必须大于1");
+        }
+
+        const currentDate = new Date();
+        // 使用与应用完全相同的 salt
+        const salt = "YOUR_SALT_HERE";
+        console.log("salt", salt);
+        return generateKey(currentDate, days, salt);
+      }
+
+      function handleGenerate() {
+        const days = parseInt(document.getElementById("days").value);
+        const key = generateAuthKey(days);
+
+        if (key) {
+          document.getElementById("authKey").textContent = key;
+          document.getElementById("result").classList.remove("d-none");
+        }
+      }
+
+      function copyKey() {
+        const key = document.getElementById("authKey").textContent;
+        navigator.clipboard
+          .writeText(key)
+          .then(() => {
+            alert("授权码已复制到剪贴板");
+          })
+          .catch((err) => {
+            alert("复制失败，请手动复制");
+            console.error("复制失败:", err);
+          });
+      }
+    </script>
+  </body>
+</html>
