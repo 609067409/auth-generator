@@ -38,6 +38,11 @@
         <label for="days" class="form-label">授权天数</label>
         <input type="number" class="form-control" id="days" min="1" max="365" value="7" />
       </div>
+      <div class="mb-3">
+        <label for="macAddress" class="form-label">MAC 地址</label>
+        <input type="text" class="form-control" id="macAddress" placeholder="输入客户设备的 MAC 地址" />
+        <div class="form-text">格式示例: AA:BB:CC:DD:EE:FF</div>
+      </div>
       <button class="btn btn-primary w-100" onclick="handleGenerate()">生成授权码</button>
 
       <div id="result" class="result-box d-none">
@@ -48,7 +53,7 @@
     </div>
 
     <script>
-      function generateKey(date, days, salt) {
+      function generateKey(date, days, salt, macAddress) {
         try {
           const timestamp = Math.floor(date.getTime() / (1000 * 60));
           console.log('timestamp:', timestamp);
@@ -61,7 +66,8 @@
           // 2. 构建短数据字符串
           const data = {
             t: relativeTime,  // 相对时间戳
-            d: days           // 授权天数
+            d: days,          // 授权天数
+            m: macAddress     // 设备MAC地址
           }
           console.log('data:', data);
           
@@ -87,25 +93,42 @@
         }
       }
 
-      function generateAuthKey(days) {
+      function generateAuthKey(days, macAddress) {
         if (days < 1) {
           throw new Error("授权天数必须大于1");
+        }
+        
+        if (!macAddress) {
+          throw new Error("MAC 地址不能为空");
+        }
+        
+        // 验证 MAC 地址格式
+        const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
+        if (!macRegex.test(macAddress)) {
+          throw new Error("MAC 地址格式不正确，请使用 AA:BB:CC:DD:EE:FF 格式");
         }
 
         const currentDate = new Date();
         // 使用与应用完全相同的 salt
         const salt = "YOUR_SALT_HERE";
         console.log("salt", salt);
-        return generateKey(currentDate, days, salt);
+        return generateKey(currentDate, days, salt, macAddress);
       }
 
       function handleGenerate() {
         const days = parseInt(document.getElementById("days").value);
-        const key = generateAuthKey(days);
+        const macAddress = document.getElementById("macAddress").value.trim();
+        
+        try {
+          const key = generateAuthKey(days, macAddress);
 
-        if (key) {
-          document.getElementById("authKey").textContent = key;
-          document.getElementById("result").classList.remove("d-none");
+          if (key) {
+            document.getElementById("authKey").textContent = key;
+            document.getElementById("result").classList.remove("d-none");
+          }
+        } catch (error) {
+          alert(error.message);
+          console.error(error);
         }
       }
 
@@ -120,6 +143,35 @@
             alert("复制失败，请手动复制");
             console.error("复制失败:", err);
           });
+      }
+      
+      // 解析授权码（用于测试）
+      function parseAuthKey(key) {
+        try {
+          if (!key || key.length < 4) return null;
+          
+          // 1. 分离数据和校验码
+          const checksum = key.slice(-4);
+          const encodedData = key.slice(0, -4);
+          
+          // 2. 解码数据
+          let base64Str = encodedData.replace(/-/g, '+').replace(/_/g, '/');
+          
+          // 添加必要的填充字符
+          while (base64Str.length % 4) {
+            base64Str += '=';
+          }
+          
+          const dataStr = CryptoJS.enc.Utf8.stringify(
+            CryptoJS.enc.Base64.parse(base64Str)
+          );
+          
+          // 3. 解析JSON数据
+          return JSON.parse(dataStr);
+        } catch (error) {
+          console.error('解析授权码失败:', error);
+          return null;
+        }
       }
     </script>
   </body>
