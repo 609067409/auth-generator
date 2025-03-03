@@ -98,15 +98,15 @@
           throw new Error("授权天数必须大于1");
         }
         
-        if (!macAddress) {
-          throw new Error("MAC 地址不能为空");
+        if (macAddress) {
+            // 验证 MAC 地址格式
+            const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
+            if (!macRegex.test(macAddress)) {
+              throw new Error("MAC 地址格式不正确，请使用 AA:BB:CC:DD:EE:FF 格式");
+            }
         }
         
-        // 验证 MAC 地址格式
-        const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
-        if (!macRegex.test(macAddress)) {
-          throw new Error("MAC 地址格式不正确，请使用 AA:BB:CC:DD:EE:FF 格式");
-        }
+       
 
         const currentDate = new Date();
         // 使用与应用完全相同的 salt
